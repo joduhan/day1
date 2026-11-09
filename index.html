@@ -91,6 +91,21 @@
     #toolFrame { display: block; width: 100%; height: 85vh; border: 0; border-radius: 10px; background: #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, .15); }
     #toolFrame[hidden] { display: none; }
 
+    /* 이미지 가져오기 */
+    .sub { font-size: 1.1rem; margin: 20px 0 8px; color: #0b6e99; }
+    .imgform { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+    .imgform input[type=text], .imgform input[type=password] { flex: 1; min-width: 180px; padding: 10px 12px; border: 1px solid #b8c7d1; border-radius: 8px; font: inherit; }
+    .remember { display: block; font-size: .85rem; color: #555; margin-bottom: 8px; }
+    .msg { min-height: 1.5em; color: #b42318; }
+    .imggrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+    .imgcard { background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 4px rgba(0, 0, 0, .12); display: flex; flex-direction: column; }
+    .imgcard img { width: 100%; height: 150px; object-fit: cover; display: block; background: #dde6ec; }
+    .imgcard .tags { font-size: .8rem; color: #555; padding: 6px 10px 0; flex: 1; }
+    .imgcard .acts { display: flex; gap: 6px; padding: 8px 10px 10px; }
+    .imgcard .acts button { flex: 1; font: inherit; font-size: .8rem; padding: 6px 4px; border-radius: 6px; border: 1px solid #0b6e99; background: #fff; color: #0b6e99; cursor: pointer; }
+    .imgcard .acts button:hover { background: #e6f3f9; }
+    .urlout img { max-width: 100%; border-radius: 10px; box-shadow: 0 1px 6px rgba(0, 0, 0, .2); }
+
     /* 모바일 */
     @media (max-width: 700px) {
       .hamburger { display: block; }
@@ -125,6 +140,7 @@
           <li><a href="#bus">버스</a></li>
           <li><a href="#sights">관광지</a></li>
           <li><a href="#study">배열 학습</a></li>
+          <li><a href="#images">이미지 가져오기</a></li>
         </ul>
       </nav>
     </div>
@@ -192,6 +208,28 @@
       </div>
       <iframe id="toolFrame" title="배열 학습 기능" hidden></iframe>
     </section>
+
+    <section class="page" id="images">
+      <h1>🖼️ 이미지 가져오기</h1>
+      <p>Pixabay에서 이미지를 검색하고, 이미지 주소를 복사해서 화면에 출력합니다.</p>
+
+      <h2 class="sub">1. Pixabay 검색</h2>
+      <div class="imgform">
+        <input type="password" id="pxKey" placeholder="Pixabay API 키" autocomplete="off">
+        <input type="text" id="pxQuery" placeholder="검색어 (예: 도쿄, 벚꽃)" value="도쿄">
+        <button type="button" class="tool" id="pxSearch">🔍 검색</button>
+      </div>
+      <label class="remember"><input type="checkbox" id="pxRemember"> 이 브라우저에 API 키 기억하기 (코드와 GitHub에는 저장되지 않습니다)</label>
+      <p id="pxMsg" class="msg"></p>
+      <div class="imggrid" id="pxGrid"></div>
+
+      <h2 class="sub">2. 이미지 주소로 출력</h2>
+      <div class="imgform">
+        <input type="text" id="urlIn" placeholder="이미지 주소(https://...)를 붙여넣으세요">
+        <button type="button" class="tool" id="urlShow">🖼️ 출력</button>
+      </div>
+      <div id="urlOut" class="urlout"></div>
+    </section>
   </main>
 
   <script>
@@ -220,6 +258,98 @@
       burger.classList.toggle('open', open);
       burger.setAttribute('aria-expanded', open);
     });
+
+    /* ---- 이미지 가져오기 ---- */
+    var pxKey = document.getElementById('pxKey');
+    var pxQuery = document.getElementById('pxQuery');
+    var pxRemember = document.getElementById('pxRemember');
+    var pxMsg = document.getElementById('pxMsg');
+    var pxGrid = document.getElementById('pxGrid');
+    var urlIn = document.getElementById('urlIn');
+    var urlOut = document.getElementById('urlOut');
+
+    try {
+      var saved = localStorage.getItem('pxKey');
+      if (saved) { pxKey.value = saved; pxRemember.checked = true; }
+    } catch (e) {}
+
+    function showUrl(url) {
+      urlOut.textContent = '';
+      if (!/^https?:\/\//i.test(url)) { urlOut.textContent = 'http:// 또는 https:// 로 시작하는 주소를 입력하세요.'; return; }
+      var img = document.createElement('img');
+      img.alt = '입력한 주소의 이미지';
+      img.onerror = function () { urlOut.textContent = '이미지를 불러오지 못했습니다. 주소를 확인하세요.'; };
+      img.src = url;
+      urlOut.appendChild(img);
+    }
+
+    function addCard(hit) {
+      var card = document.createElement('div');
+      card.className = 'imgcard';
+      var img = document.createElement('img');
+      img.loading = 'lazy';
+      img.alt = hit.tags;
+      img.src = hit.webformatURL;
+      var tags = document.createElement('div');
+      tags.className = 'tags';
+      tags.textContent = hit.tags;
+      var acts = document.createElement('div');
+      acts.className = 'acts';
+
+      var copy = document.createElement('button');
+      copy.type = 'button';
+      copy.textContent = '📋 주소 복사';
+      copy.onclick = function () {
+        var done = function () { copy.textContent = '✅ 복사됨'; setTimeout(function () { copy.textContent = '📋 주소 복사'; }, 1500); };
+        try { navigator.clipboard.writeText(hit.webformatURL).then(done, function () { window.prompt('주소를 복사하세요', hit.webformatURL); }); }
+        catch (e) { window.prompt('주소를 복사하세요', hit.webformatURL); }
+      };
+
+      var show = document.createElement('button');
+      show.type = 'button';
+      show.textContent = '🖼️ 크게 출력';
+      show.onclick = function () {
+        urlIn.value = hit.webformatURL;
+        showUrl(hit.webformatURL);
+        urlOut.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      };
+
+      acts.appendChild(copy);
+      acts.appendChild(show);
+      card.appendChild(img);
+      card.appendChild(tags);
+      card.appendChild(acts);
+      pxGrid.appendChild(card);
+    }
+
+    function search() {
+      var key = pxKey.value.trim(), q = pxQuery.value.trim();
+      pxGrid.textContent = '';
+      if (!key) { pxMsg.textContent = 'Pixabay API 키를 입력하세요.'; return; }
+      if (!q) { pxMsg.textContent = '검색어를 입력하세요.'; return; }
+      try {
+        if (pxRemember.checked) localStorage.setItem('pxKey', key); else localStorage.removeItem('pxKey');
+      } catch (e) {}
+      pxMsg.textContent = '검색 중...';
+      var url = 'https://pixabay.com/api/?key=' + encodeURIComponent(key) + '&q=' + encodeURIComponent(q) +
+                '&lang=ko&image_type=photo&safesearch=true&per_page=20';
+      fetch(url)
+        .then(function (r) {
+          if (!r.ok) throw new Error(r.status === 400 ? 'API 키가 올바르지 않거나 요청이 잘못되었습니다.' : r.status === 429 ? '요청 한도를 초과했습니다. 잠시 후 다시 시도하세요.' : '서버 오류 (' + r.status + ')');
+          return r.json();
+        })
+        .then(function (d) {
+          if (!d.hits.length) { pxMsg.textContent = '검색 결과가 없습니다.'; return; }
+          pxMsg.textContent = '총 ' + d.totalHits + '개 중 ' + d.hits.length + '개를 표시합니다.';
+          d.hits.forEach(addCard);
+        })
+        .catch(function (e) { pxMsg.textContent = '오류: ' + e.message; });
+    }
+
+    document.getElementById('pxSearch').addEventListener('click', search);
+    pxQuery.addEventListener('keydown', function (e) { if (e.key === 'Enter') search(); });
+    document.getElementById('urlShow').addEventListener('click', function () { showUrl(urlIn.value.trim()); });
+    urlIn.addEventListener('keydown', function (e) { if (e.key === 'Enter') showUrl(urlIn.value.trim()); });
 
     var frame = document.getElementById('toolFrame');
     document.querySelectorAll('.tool').forEach(function (b) {
