@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>자바스크립트 배열 단계별 실행</title>
+  <style>
+    :root {
+      --bg: #f4f6fb; --card: #fff; --text: #1f2430; --muted: #6b7280;
+      --accent: #4f46e5; --hl: #fde68a; --ok: #059669; --line: #e5e7eb;
+      --code-bg: #1e1e2e; --code-text: #cdd6f4;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; padding: 16px; }
+    h1 { text-align: center; font-size: 1.4rem; margin-bottom: 12px; }
+    .wrap { max-width: 1000px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .card { background: var(--card); border-radius: 12px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+    .card h2 { font-size: 1rem; margin-bottom: 10px; color: var(--accent); }
+    .full { grid-column: 1 / -1; }
+
+    /* 코드 */
+    .code { background: var(--code-bg); color: var(--code-text); border-radius: 8px; padding: 8px 0; font-family: Consolas, monospace; font-size: .95rem; overflow-x: auto; }
+    .code div { padding: 3px 14px; white-space: pre; border-left: 4px solid transparent; }
+    .code div.on { background: rgba(253, 230, 138, .22); border-left-color: #fbbf24; }
+    .code .n { color: #6c7086; display: inline-block; width: 2ch; margin-right: 12px; text-align: right; }
+    .code .c { color: #7f849c; }
+
+    /* 설명 */
+    #desc { min-height: 3.6em; font-size: 1.05rem; }
+    #desc b { color: var(--accent); }
+    #stepNo { color: var(--muted); font-size: .85rem; margin-bottom: 4px; }
+
+    /* 변수 */
+    .vars { display: flex; gap: 10px; flex-wrap: wrap; }
+    .var { flex: 1; min-width: 90px; text-align: center; border: 2px solid var(--line); border-radius: 10px; padding: 8px; transition: all .25s; }
+    .var .name { font-size: .8rem; color: var(--muted); font-family: Consolas, monospace; }
+    .var .val { font-size: 1.5rem; font-weight: bold; font-family: Consolas, monospace; }
+    .var.changed { border-color: #f59e0b; background: #fffbeb; transform: scale(1.06); }
+    .var.undef .val { color: var(--muted); font-size: 1rem; }
+
+    /* 배열 */
+    .arr { display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; }
+    .cell { text-align: center; border: 1px solid var(--line); border-radius: 6px; padding: 2px 0; font-family: Consolas, monospace; font-size: .85rem; background: #f9fafb; transition: all .2s; }
+    .cell small { display: block; font-size: .65rem; color: var(--muted); }
+    .arr.off .cell { opacity: .25; }
+    .cell.done { background: #d1fae5; border-color: #6ee7b7; }
+    .cell.cur { background: var(--hl); border-color: #f59e0b; transform: scale(1.18); font-weight: bold; box-shadow: 0 2px 6px rgba(0,0,0,.25); position: relative; z-index: 1; }
+
+    /* 콘솔 */
+    .console { background: #111827; color: #d1fae5; border-radius: 8px; padding: 10px 14px; font-family: Consolas, monospace; min-height: 70px; }
+    .console .empty { color: #6b7280; }
+
+    /* 컨트롤 */
+    .ctrl { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; }
+    button, select { font: inherit; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line); background: #fff; cursor: pointer; }
+    button:hover:not(:disabled) { border-color: var(--accent); }
+    button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+    button:disabled { opacity: .4; cursor: default; }
+    input[type=range] { width: 100%; margin-top: 12px; }
+
+    @media (max-width: 720px) { .wrap { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <h1>🔍 자바스크립트 배열 · 한 줄씩 실행해 보기</h1>
+
+  <div class="wrap">
+    <div class="card">
+      <h2>📜 코드 (노란 줄이 지금 실행되는 줄)</h2>
+      <div class="code" id="code"></div>
+    </div>
+
+    <div class="card">
+      <h2>💬 지금 무슨 일이 일어났나요?</h2>
+      <div id="stepNo"></div>
+      <div id="desc"></div>
+      <h2 style="margin-top:14px">📦 변수 상자</h2>
+      <div class="vars" id="vars"></div>
+    </div>
+
+    <div class="card full">
+      <h2>🔢 data 배열 (칸 아래 작은 숫자 = 인덱스)</h2>
+      <div class="arr off" id="arr"></div>
+    </div>
+
+    <div class="card full">
+      <h2>🖥️ 콘솔 출력</h2>
+      <div class="console" id="console"></div>
+    </div>
+
+    <div class="card full">
+      <div class="ctrl">
+        <button id="reset">⏮ 처음으로</button>
+        <button id="prev">◀ 이전</button>
+        <button id="play" class="primary">▶ 자동 재생</button>
+        <button id="next" class="primary">다음 ▶</button>
+        <button id="skip">⏭ 반복문 건너뛰기</button>
+        <label>속도
+          <select id="speed">
+            <option value="1200">느리게</option>
+            <option value="600" selected>보통</option>
+            <option value="150">빠르게</option>
+            <option value="30">아주 빠르게</option>
+          </select>
+        </label>
+      </div>
+      <input type="range" id="slider" min="0" value="0">
+    </div>
+  </div>
+
+  <script>
+    // ---- 원본 코드(표시용) ----
+    var CODE = [
+      'const data = [1, 2, 3, ... , 100]',
+      'console.log(data[0])',
+      'let sum = 0',
+      'sum += 7',
+      'console.log(sum) <span class="c">// 17 (실제로는 7)</span>',
+      'let cnt = 8',
+      'cnt = cnt + 1',
+      'for (const i of data) {',
+      '    sum += i',
+      '}',
+      'console.log(sum)'
+    ];
+    var data = [];
+    for (var k = 1; k <= 100; k++) data.push(k);
+
+    // ---- 모든 단계를 미리 계산 ----
+    var steps = [];
+    var st = { sum: null, cnt: null, i: null, idx: -1, arr: false, out: [] };
+    function snap(line, desc, changed, extra) {
+      var s = JSON.parse(JSON.stringify(st));
+      s.line = line; s.desc = desc; s.changed = changed || [];
+      if (extra) for (var key in extra) s[key] = extra[key];
+      steps.push(s);
+    }
+    snap(-1, '아직 아무 코드도 실행하지 않았습니다. <b>다음 ▶</b> 버튼을 눌러 한 줄씩 실행해 보세요.');
+
+    st.arr = true;
+    snap(0, '<b>data</b>라는 이름으로 숫자 1~100이 들어 있는 배열을 만듭니다. 맨 앞 칸의 번호(인덱스)는 <b>1이 아니라 0</b>입니다.');
+
+    st.out.push('1');
+    snap(1, '<b>data[0]</b>은 배열의 0번째 칸 값입니다. 그 값 <b>1</b>이 콘솔에 출력됩니다.', [], { idx: 0, mode: 'peek' });
+
+    st.sum = 0;
+    snap(2, '<b>sum</b> 상자를 만들고 <b>0</b>을 넣습니다.', ['sum']);
+
+    st.sum += 7;
+    snap(3, '<b>sum += 7</b> 은 <b>sum = sum + 7</b> 과 같습니다. 0 + 7 = <b>7</b>.', ['sum']);
+
+    st.out.push(String(st.sum));
+    snap(4, '현재 sum 값 <b>' + st.sum + '</b>을 출력합니다. 주석에는 17이라고 적혀 있지만 실제 값은 7입니다.');
+
+    st.cnt = 8;
+    snap(5, '<b>cnt</b> 상자를 만들고 <b>8</b>을 넣습니다.', ['cnt']);
+
+    st.cnt = st.cnt + 1;
+    snap(6, 'cnt에 1을 더해서 다시 넣습니다. 8 + 1 = <b>9</b>.', ['cnt']);
+
+    var loopStart = steps.length;
+    for (var n = 0; n < data.length; n++) {
+      st.i = data[n]; st.idx = n;
+      snap(7, '<b>for...of</b> ' + (n + 1) + '번째 반복: 배열의 <b>' + n + '번째 칸</b> 값 <b>' + data[n] + '</b>을 꺼내 <b>i</b>에 넣습니다.', ['i'], { mode: 'cur', loop: true });
+      var before = st.sum;
+      st.sum += data[n];
+      snap(8, 'sum += i → ' + before + ' + ' + data[n] + ' = <b>' + st.sum + '</b>', ['sum'], { mode: 'cur', loop: true });
+    }
+    var loopEnd = steps.length;
+    st.i = null; st.idx = 100;
+    snap(9, '배열의 끝까지 모두 꺼냈으므로 반복문이 끝납니다. (1부터 100까지의 합 5050이 sum에 더해졌습니다.)', [], { mode: 'all' });
+
+    st.out.push(String(st.sum));
+    snap(10, '최종 sum 값을 출력합니다. 7 + 5050 = <b>' + st.sum + '</b>', ['sum'], { mode: 'all' });
+
+    // ---- 화면 만들기 ----
+    var $ = function (id) { return document.getElementById(id); };
+    $('code').innerHTML = CODE.map(function (t, i) {
+      return '<div data-l="' + i + '"><span class="n">' + (i + 1) + '</span>' + t + '</div>';
+    }).join('');
+    $('arr').innerHTML = data.map(function (v, i) {
+      return '<div class="cell">' + v + '<small>' + i + '</small></div>';
+    }).join('');
+    $('slider').max = steps.length - 1;
+
+    var pos = 0, timer = null;
+
+    function varBox(name, val, changed) {
+      var undef = val === null;
+      return '<div class="var' + (changed ? ' changed' : '') + (undef ? ' undef' : '') + '">' +
+        '<div class="name">' + name + '</div><div class="val">' + (undef ? '아직 없음' : val) + '</div></div>';
+    }
+
+    function render() {
+      var s = steps[pos];
+      $('stepNo').textContent = '단계 ' + pos + ' / ' + (steps.length - 1);
+      $('desc').innerHTML = s.desc;
+      document.querySelectorAll('#code div').forEach(function (d) {
+        d.classList.toggle('on', Number(d.dataset.l) === s.line);
+      });
+      $('vars').innerHTML =
+        varBox('sum', s.sum, s.changed.indexOf('sum') >= 0) +
+        varBox('cnt', s.cnt, s.changed.indexOf('cnt') >= 0) +
+        varBox('i', s.i, s.changed.indexOf('i') >= 0);
+
+      var arr = $('arr');
+      arr.classList.toggle('off', !s.arr);
+      arr.querySelectorAll('.cell').forEach(function (c, idx) {
+        var cur = (s.mode === 'cur' || s.mode === 'peek') && idx === s.idx;
+        var done = (s.mode === 'cur' && s.line === 8 && idx <= s.idx) ||
+                   (s.mode === 'cur' && s.line === 7 && idx < s.idx) ||
+                   s.mode === 'all';
+        c.classList.toggle('cur', cur);
+        c.classList.toggle('done', done && !cur);
+      });
+
+      $('console').innerHTML = s.out.length
+        ? s.out.map(function (o) { return '&gt; ' + o; }).join('<br>')
+        : '<span class="empty">(아직 출력된 내용이 없습니다)</span>';
+
+      $('slider').value = pos;
+      $('prev').disabled = $('reset').disabled = pos === 0;
+      $('next').disabled = pos === steps.length - 1;
+      $('skip').disabled = !(s.loop || pos === loopStart - 1);
+      if (pos === steps.length - 1) stop();
+    }
+
+    function go(p) { pos = Math.max(0, Math.min(steps.length - 1, p)); render(); }
+    function stop() { clearInterval(timer); timer = null; $('play').textContent = '▶ 자동 재생'; }
+    function play() {
+      if (timer) { stop(); return; }
+      if (pos === steps.length - 1) pos = 0;
+      $('play').textContent = '⏸ 일시정지';
+      timer = setInterval(function () { go(pos + 1); }, Number($('speed').value));
+    }
+
+    $('next').onclick = function () { stop(); go(pos + 1); };
+    $('prev').onclick = function () { stop(); go(pos - 1); };
+    $('reset').onclick = function () { stop(); go(0); };
+    $('skip').onclick = function () { stop(); go(loopEnd); };
+    $('play').onclick = play;
+    $('slider').oninput = function () { stop(); go(Number(this.value)); };
+    $('speed').onchange = function () { if (timer) { stop(); play(); } };
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowRight') { stop(); go(pos + 1); }
+      if (e.key === 'ArrowLeft') { stop(); go(pos - 1); }
+    });
+
+    render();
+  </script>
+</body>
+</html>

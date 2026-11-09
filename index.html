@@ -80,6 +80,17 @@
     }
     .card h3 { margin-bottom: 4px; }
 
+    /* 배열 학습 */
+    .tools { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
+    .tool {
+      font: inherit; padding: 10px 18px; border-radius: 999px; cursor: pointer;
+      border: 2px solid #0b6e99; background: #fff; color: #0b6e99;
+    }
+    .tool:hover { background: #e6f3f9; }
+    .tool.active { background: #0b6e99; color: #fff; }
+    #toolFrame { display: block; width: 100%; height: 85vh; border: 0; border-radius: 10px; background: #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, .15); }
+    #toolFrame[hidden] { display: none; }
+
     /* 모바일 */
     @media (max-width: 700px) {
       .hamburger { display: block; }
@@ -93,7 +104,7 @@
         overflow: hidden;
         transition: max-height .3s;
       }
-      nav.open { max-height: 320px; }
+      nav.open { max-height: 400px; }
       nav ul { flex-direction: column; padding: 8px 16px 16px; }
       nav a { padding: 12px; }
     }
@@ -113,6 +124,7 @@
           <li><a href="#food">음식점</a></li>
           <li><a href="#bus">버스</a></li>
           <li><a href="#sights">관광지</a></li>
+          <li><a href="#study">배열 학습</a></li>
         </ul>
       </nav>
     </div>
@@ -169,6 +181,17 @@
         <div class="card"><h3>협재해수욕장</h3><p>에메랄드빛 바다</p></div>
       </div>
     </section>
+
+    <section class="page" id="study">
+      <h1>🧑‍🏫 배열 학습</h1>
+      <p>버튼을 누르면 해당 기능이 아래에 표시됩니다.</p>
+      <div class="tools">
+        <button type="button" class="tool" data-src="array-steps.html">🔢 배열 한 줄씩 실행</button>
+        <button type="button" class="tool" data-src="cart-array.html">🛒 장바구니로 배우는 배열</button>
+        <button type="button" class="tool" data-src="loop-objects.html">🔁 반복문과 객체 배열</button>
+      </div>
+      <iframe id="toolFrame" title="배열 학습 기능" hidden></iframe>
+    </section>
   </main>
 
   <script>
@@ -196,6 +219,15 @@
       var open = menu.classList.toggle('open');
       burger.classList.toggle('open', open);
       burger.setAttribute('aria-expanded', open);
+    });
+
+    var frame = document.getElementById('toolFrame');
+    document.querySelectorAll('.tool').forEach(function (b) {
+      b.addEventListener('click', function () {
+        document.querySelectorAll('.tool').forEach(function (x) { x.classList.toggle('active', x === b); });
+        frame.hidden = false;
+        frame.src = b.dataset.src;
+      });
     });
 
     window.addEventListener('hashchange', show);

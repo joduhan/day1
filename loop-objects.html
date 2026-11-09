@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>반복문과 객체 배열 애니메이션</title>
+  <style>
+    :root { --text: #eef0ff; --muted: #a5a9d6; --pink: #ff4ecd; --cyan: #22d3ee; --gold: #fbbf24; --red: #ff5470; --green: #34d399; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; color: var(--text); line-height: 1.5; padding: 16px; min-height: 100vh;
+      background: linear-gradient(135deg, #1b1042, #0f2a5c, #3b0a5e, #0b3a4a); background-size: 400% 400%; animation: bg 18s ease infinite;
+    }
+    @keyframes bg { 0%,100% { background-position: 0 50%; } 50% { background-position: 100% 50%; } }
+    h1 { text-align: center; font-size: 1.6rem; margin-bottom: 14px; background: linear-gradient(90deg, var(--cyan), var(--pink), var(--gold)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .wrap { max-width: 1180px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+    .col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+    .glass { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.18); backdrop-filter: blur(8px); border-radius: 16px; padding: 16px; box-shadow: 0 8px 28px rgba(0,0,0,.35); }
+    .glass h2 { font-size: .95rem; margin-bottom: 10px; color: var(--cyan); letter-spacing: .02em; }
+    .full { grid-column: 1 / -1; }
+
+    /* ===== 왼쪽: 장바구니 ===== */
+    .addform { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+    .addform label { font-size: .8rem; color: var(--muted); display: block; }
+    .addform input { width: 100%; padding: 8px 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,.3); background: rgba(0,0,0,.3); color: var(--text); font: inherit; }
+    .addform .btns { grid-column: 1 / -1; display: flex; gap: 8px; flex-wrap: wrap; }
+    .cartinfo { display: flex; justify-content: space-between; font-size: .9rem; color: var(--muted); margin: 6px 2px; }
+    .cartinfo b { color: var(--gold); }
+    .cartlist { max-height: 560px; overflow-y: auto; border-radius: 12px; background: rgba(0,0,0,.25); padding: 6px; position: relative; }
+    .citem { display: grid; grid-template-columns: 34px 1fr auto; gap: 8px; align-items: center; padding: 6px 8px; margin-bottom: 4px; border-radius: 10px; border: 2px solid transparent; background: rgba(255,255,255,.06); transition: all .25s; }
+    .citem .no { font-family: Consolas, monospace; font-size: .75rem; color: var(--muted); }
+    .citem .em { font-size: 1.05rem; line-height: 1.2; word-break: break-all; }
+    .citem .em small { font-size: .8rem; color: var(--muted); }
+    .citem .info { font-size: .75rem; color: var(--muted); font-family: Consolas, monospace; }
+    .citem .sub { font-family: Consolas, monospace; font-weight: bold; min-width: 70px; text-align: right; color: var(--muted); }
+    .citem.cur { background: rgba(251,191,36,.28); border-color: var(--gold); box-shadow: 0 0 18px rgba(251,191,36,.6); transform: scale(1.02); }
+    .citem.done { background: rgba(52,211,153,.14); }
+    .citem.done .sub { color: var(--green); }
+    .citem.done .sub.bad { color: var(--red); }
+    .citem.new { animation: pop .5s; }
+    .emptycart { text-align: center; padding: 30px 0; color: var(--muted); }
+
+    /* ===== 오른쪽: 로직 ===== */
+    .code { font-family: Consolas, monospace; font-size: .92rem; background: rgba(0,0,0,.35); border-radius: 10px; padding: 8px 0; overflow-x: auto; }
+    .code div { padding: 3px 14px; white-space: pre; border-left: 4px solid transparent; transition: background .3s; }
+    .code div.on { background: linear-gradient(90deg, rgba(251,191,36,.35), transparent); border-left-color: var(--gold); }
+    .code .n { color: #6f74a8; display: inline-block; width: 2ch; margin-right: 12px; text-align: right; }
+    .code .c { color: #8a8fc4; }
+    .code .typo { color: var(--red); text-decoration: wavy underline var(--red); font-weight: bold; }
+    .code .fix { color: var(--green); font-weight: bold; }
+
+    #stepNo { color: var(--muted); font-size: .85rem; }
+    #desc { min-height: 5.6em; font-size: 1.05rem; margin-top: 4px; }
+    #desc b { color: var(--gold); }
+    #desc .bad { color: var(--red); font-weight: bold; }
+    label.fix { display: flex; align-items: center; gap: 8px; margin-top: 10px; padding: 8px 12px; border-radius: 10px; background: rgba(52,211,153,.15); border: 1px solid rgba(52,211,153,.4); cursor: pointer; font-size: .95rem; }
+
+    .loopbar { margin-bottom: 12px; }
+    .loopbar .t { display: flex; justify-content: space-between; font-size: .9rem; margin-bottom: 4px; }
+    .loopbar .t b { color: var(--gold); font-size: 1.1rem; }
+    .bar { height: 14px; border-radius: 999px; background: rgba(0,0,0,.35); overflow: hidden; }
+    .bar i { display: block; height: 100%; width: 0; border-radius: 999px; background: linear-gradient(90deg, var(--cyan), var(--pink), var(--gold)); transition: width .4s; }
+    .spin { display: inline-block; }
+    .spin.go { animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .ibox { border-radius: 16px; padding: 12px; text-align: center; border: 2px dashed rgba(255,255,255,.35); background: rgba(0,0,0,.25); min-height: 96px; }
+    .ibox .name { font-family: Consolas, monospace; color: var(--muted); font-size: .85rem; }
+    .ibox .big { font-size: 1.7rem; line-height: 1.3; }
+    .ibox .val { font-family: Consolas, monospace; margin-top: 2px; font-size: .95rem; word-break: break-all; }
+    .ibox.changed { border-style: solid; border-color: var(--cyan); box-shadow: 0 0 22px rgba(34,211,238,.6); animation: pop .5s; }
+
+    .calc { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; padding: 6px 0; }
+    .chip { min-width: 100px; text-align: center; border-radius: 14px; padding: 8px 12px; background: rgba(0,0,0,.3); border: 2px solid rgba(255,255,255,.2); }
+    .chip .lab { font-family: Consolas, monospace; font-size: .78rem; color: var(--muted); }
+    .chip .num { font-family: Consolas, monospace; font-size: 1.5rem; font-weight: bold; min-height: 2rem; }
+    .chip.set { border-color: var(--cyan); box-shadow: 0 0 20px rgba(34,211,238,.55); animation: pop .55s; }
+    .chip.bad { border-color: var(--red); box-shadow: 0 0 22px rgba(255,84,112,.7); animation: shake .55s; }
+    .chip.bad .num { color: var(--red); }
+    .chip.res.set { border-color: var(--gold); box-shadow: 0 0 22px rgba(251,191,36,.7); }
+    .op { font-size: 1.6rem; color: var(--pink); font-weight: bold; }
+    @keyframes pop { 0% { transform: scale(.4); opacity: 0; } 70% { transform: scale(1.15); } 100% { transform: scale(1); opacity: 1; } }
+    @keyframes shake { 0%,100% { transform: translateX(0); } 20%,60% { transform: translateX(-8px); } 40%,80% { transform: translateX(8px); } }
+
+    .sumbox { text-align: center; padding: 12px; border-radius: 16px; background: rgba(0,0,0,.28); border: 2px solid rgba(255,255,255,.2); transition: all .3s; }
+    .sumbox .lab { font-family: Consolas, monospace; color: var(--muted); }
+    .sumbox .big { font-family: Consolas, monospace; font-size: 2.4rem; font-weight: bold; text-shadow: 0 0 16px rgba(34,211,238,.8); }
+    .sumbox.changed { border-color: var(--gold); box-shadow: 0 0 28px rgba(251,191,36,.7); }
+    .sumbox.nan { border-color: var(--red); } .sumbox.nan .big { color: var(--red); text-shadow: 0 0 18px rgba(255,84,112,.9); animation: shake .6s; }
+    .sumbox.win .big { color: var(--green); text-shadow: 0 0 22px rgba(52,211,153,.9); }
+
+    /* 컨트롤 */
+    .ctrl { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; }
+    button, select { font: inherit; padding: 8px 16px; border-radius: 999px; border: 1px solid rgba(255,255,255,.3); background: rgba(255,255,255,.12); color: var(--text); cursor: pointer; }
+    select option { color: #000; }
+    button.primary { background: linear-gradient(90deg, var(--pink), #8b5cf6); border: 0; font-weight: bold; }
+    button:disabled { opacity: .35; cursor: default; }
+    input[type=range] { width: 100%; margin-top: 12px; accent-color: var(--pink); }
+
+    .confetti { position: fixed; top: -30px; font-size: 1.6rem; pointer-events: none; animation: fall linear forwards; z-index: 50; }
+    @keyframes fall { to { transform: translateY(110vh) rotate(540deg); opacity: .8; } }
+
+    @media (max-width: 820px) { .wrap { grid-template-columns: 1fr; } .cartlist { max-height: 360px; } }
+  </style>
+</head>
+<body>
+  <h1>🛒 장바구니로 이해하는 반복문 🔁</h1>
+
+  <div class="wrap">
+    <!-- 왼쪽: 장바구니 -->
+    <div class="col">
+      <div class="glass">
+        <h2>🍎 장바구니에 사과 담기 (data 배열에 객체를 추가)</h2>
+        <div class="addform">
+          <div><label for="inPrice">사과 가격 (원)</label><input id="inPrice" type="number" min="1" value="100"></div>
+          <div><label for="inAmount">개수</label><input id="inAmount" type="number" min="1" value="3"></div>
+          <div class="btns">
+            <button id="add" class="primary">🍎 담기</button>
+            <button id="fill">🎲 50개 채우기</button>
+            <button id="clear">🗑️ 비우기</button>
+          </div>
+        </div>
+        <div class="cartinfo"><span>🛒 data.length = <b id="cnt">0</b>개</span><span>총 반복 횟수 = <b id="cnt2">0</b>회</span></div>
+        <div class="cartlist" id="cartlist"></div>
+      </div>
+    </div>
+
+    <!-- 오른쪽: 로직 -->
+    <div class="col">
+      <div class="glass">
+        <h2>📜 코드 (노란 줄 = 지금 실행 중)</h2>
+        <div class="code" id="code"></div>
+      </div>
+
+      <div class="glass">
+        <h2>💬 지금 무슨 일이 일어났나요?</h2>
+        <div id="stepNo"></div>
+        <div id="desc"></div>
+        <label class="fix"><input type="checkbox" id="fixbox"> 🛠️ 오타 고치기 (<code>i.amout</code> → <code>i.amount</code>)</label>
+      </div>
+
+      <div class="glass">
+        <h2>🔁 반복문 진행 상황</h2>
+        <div class="loopbar">
+          <div class="t"><span><span class="spin" id="spin">🔄</span> 반복 횟수</span><span><b id="loopn">0</b> / <span id="looptotal">0</span></span></div>
+          <div class="bar"><i id="barfill"></i></div>
+        </div>
+        <div class="ibox" id="ibox"></div>
+      </div>
+
+      <div class="glass">
+        <h2>🧮 sum += i.사과 * i.amout (가격 × 개수를 더하기)</h2>
+        <div class="calc" id="calc"></div>
+        <div class="sumbox" id="sumbox" style="margin-top:10px"></div>
+      </div>
+    </div>
+
+    <div class="glass full">
+      <div class="ctrl">
+        <button id="reset">⏮ 처음으로</button>
+        <button id="prev">◀ 이전</button>
+        <button id="play" class="primary">▶ 자동 재생</button>
+        <button id="next" class="primary">다음 ▶</button>
+        <button id="nextIter">⏩ 다음 반복으로</button>
+        <button id="skip">⏭ 반복문 끝까지</button>
+        <label>속도
+          <select id="speed">
+            <option value="1800">느리게</option>
+            <option value="900" selected>보통</option>
+            <option value="300">빠르게</option>
+            <option value="80">아주 빠르게</option>
+          </select>
+        </label>
+      </div>
+      <input type="range" id="slider" min="0" value="0">
+    </div>
+  </div>
+
+  <script>
+    var $ = function (id) { return document.getElementById(id); };
+    var data = [];            // [{k: 가격(사과), amount: 개수}]
+    var fixed = false, steps = [], pos = 0, timer = null, raf = null, lastPos = -1, justAdded = false;
+
+    function fmt(v) {
+      if (v === undefined) return 'undefined';
+      if (typeof v === 'number' && isNaN(v)) return 'NaN';
+      return typeof v === 'number' ? v.toLocaleString() : String(v);
+    }
+    function bad(v) { return v === undefined || (typeof v === 'number' && isNaN(v)); }
+
+    function sampleData() {
+      var d = [{ k: 100, amount: 5 }, { k: 103, amount: 52 }];   // 처음 2개는 원래 코드와 같은 값
+      for (var k = 2; k < 50; k++) d.push({ k: 100 + (k * 7) % 25, amount: 1 + (k * 5) % 9 });
+      return d;
+    }
+
+    function emojis(n) {
+      var shown = Math.min(n, 10), s = '';
+      for (var i = 0; i < shown; i++) s += '🍎';
+      return s + (n > shown ? ' <small>×' + n + '</small>' : '');
+    }
+
+    /* ---------- 모든 단계를 미리 계산 ---------- */
+    function build() {
+      steps = [];
+      var N = data.length;
+      var st = { idx: -1, iobj: null, sum: null, a: null, b: null, r: null, hasA: false, hasB: false, hasR: false, count: 0 };
+      function snap(lines, desc, ch, extra) {
+        var s = JSON.parse(JSON.stringify(st, function (k, v) { return v === undefined ? '__u' : (typeof v === 'number' && isNaN(v) ? '__n' : v); }));
+        ['a', 'b', 'r', 'sum'].forEach(function (f) { if (s[f] === '__u') s[f] = undefined; if (s[f] === '__n') s[f] = NaN; });
+        s.lines = lines; s.desc = desc; s.ch = ch || []; s.phase = 'none';
+        if (extra) for (var e in extra) s[e] = extra[e];
+        steps.push(s);
+      }
+      snap([], '아직 실행 전입니다. 왼쪽 장바구니에는 사과 <b>' + N + '개 묶음</b>이 담겨 있어요. <b>다음 ▶</b> 버튼을 눌러 보세요.' + (fixed ? '' : '<br>(이 코드에는 오타가 숨어 있어요 🐛)'));
+      snap([0, 1, 2, 3], '<b>data</b> 배열이 만들어졌습니다. 왼쪽 장바구니 = data 배열이에요. 한 칸(묶음)마다 <b>사과 가격</b>과 <b>개수</b>가 들어 있습니다. 칸은 모두 <b>' + N + '개</b>!', [], { phase: 'create' });
+      st.sum = 0;
+      snap([4], '<b>sum</b> 상자를 만들고 <b>0</b>을 넣습니다. 이제 장바구니의 모든 사과 값을 여기에 모아 더할 거예요.', ['sum'], { phase: 'sum0' });
+
+      var sum = 0;
+      for (var n = 0; n < N; n++) {
+        var o = data[n];
+        st.idx = n; st.count = n; st.iobj = '사과: ' + o.k + ', amount: ' + o.amount;
+        st.a = st.b = st.r = null; st.hasA = st.hasB = st.hasR = false;
+        snap([5], n === 0
+          ? '<b>1번째 반복</b> 시작! <b>for...of</b>는 배열의 칸을 <b>처음부터 끝까지 한 칸씩</b> 꺼내 줍니다. 0번 칸의 묶음을 꺼내 <b>i</b>에 넣어요.<br><small>※ for (<b>const</b> i of data) 처럼 const를 쓰는 것이 올바른 습관입니다.</small>'
+          : '<b>' + (n + 1) + '번째 반복</b> (총 ' + N + '회 중). 다음 칸(' + n + '번)의 묶음을 꺼내 <b>i</b>에 넣습니다. 같은 일을 또 하는 거예요! 🔁', ['i'], { phase: 'take' });
+
+        var bv = fixed ? o.amount : undefined, rv = o.k * bv;
+        st.a = o.k; st.b = bv; st.r = rv; st.hasA = st.hasB = st.hasR = true;
+        var calcDesc;
+        if (!fixed && n === 0) calcDesc = '<b>i.사과</b> = ' + o.k + ', 그런데 <b>i.amout</b>은? 객체에는 "amount"는 있지만 <b>"amout"라는 이름은 없습니다!</b> 없는 이름은 <span class="bad">undefined</span>. 그래서 ' + o.k + ' × undefined = <span class="bad">NaN</span> (숫자가 아님)';
+        else if (!fixed) calcDesc = o.k + ' × undefined = <span class="bad">NaN</span> (이번에도 오타 때문!)';
+        else calcDesc = '<b>i.사과</b> ' + o.k + '원 × <b>i.amount</b> ' + o.amount + '개 = <b>' + rv.toLocaleString() + '원</b> (이 묶음의 금액)';
+        snap([6], calcDesc, ['a', 'b', 'r'], { phase: 'calc' });
+
+        var before = sum; sum = sum + rv; st.sum = sum; st.count = n + 1;
+        snap([6], '<b>sum += 결과</b> → ' + fmt(before) + ' + ' + fmt(rv) + ' = <b>' + (bad(sum) ? '<span class="bad">NaN</span>' : sum.toLocaleString()) + '</b>' +
+          (bad(sum) && n === 0 ? '<br>NaN이 한 번 섞이면 그 뒤로 계속 NaN이에요.' : ''), ['sum'], { phase: 'add', from: before });
+      }
+      st.idx = N; st.iobj = null; st.a = st.b = st.r = null; st.hasA = st.hasB = st.hasR = false; st.count = N;
+      snap([7], N === 0 ? '장바구니가 비어 있어서 반복을 한 번도 하지 않았습니다. sum은 0 그대로예요.'
+        : bad(sum)
+          ? '장바구니 ' + N + '칸을 모두 꺼냈으므로 반복문이 끝났습니다. 하지만 sum은 <span class="bad">NaN</span>! 😱 원인은 <b>i.amout</b> 오타. 위의 <b>🛠️ 오타 고치기</b>를 체크하고 다시 해 보세요.'
+          : '장바구니 ' + N + '칸을 모두 꺼냈으므로 반복문이 끝났습니다! 최종 <b>sum = ' + sum.toLocaleString() + '원</b> 🎉<br>반복문 덕분에 ' + N + '번의 계산을 코드 두 줄로 끝냈어요.', [], { phase: 'end', win: !bad(sum) && N > 0 });
+    }
+
+    /* ---------- 화면 만들기 ---------- */
+    function renderCode() {
+      var line6 = fixed ? '  sum += i.사과 * <span class="fix">i.amount</span>' : '  sum += i.사과 * <span class="typo">i.amout</span>';
+      var CODE = ['let data = [', '  { 사과: 100, amount: 5 },  <span class="c">// ... 장바구니 칸 수만큼</span>', '  { 사과: 103, amount: 52 }, <span class="c">// ...</span>', ']',
+        'let sum = 0', 'for (i of data) { <span class="c">// 칸 수만큼 {} 안을 반복</span>', line6, '}'];
+      $('code').innerHTML = CODE.map(function (t, i) { return '<div data-l="' + i + '"><span class="n">' + (i + 1) + '</span>' + t + '</div>'; }).join('');
+      $('calc').previousElementSibling.innerHTML = '🧮 sum += i.사과 * ' + (fixed ? 'i.amount' : 'i.amout') + ' (가격 × 개수를 더하기)';
+    }
+
+    function renderCart() {
+      $('cnt').textContent = $('cnt2').textContent = $('looptotal').textContent = data.length;
+      var el = $('cartlist');
+      if (!data.length) { el.innerHTML = '<div class="emptycart">🛒 장바구니가 비었어요<br>위에서 사과를 담아 보세요!</div>'; return; }
+      el.innerHTML = data.map(function (o, i) {
+        return '<div class="citem' + (justAdded && i === data.length - 1 ? ' new' : '') + '" data-i="' + i + '"><span class="no">[' + i + ']</span>' +
+          '<div><div class="em">' + emojis(o.amount) + '</div><div class="info">사과 ' + o.k.toLocaleString() + '원 × ' + o.amount + '개</div></div>' +
+          '<span class="sub">대기</span></div>';
+      }).join('');
+      if (justAdded) { el.scrollTop = el.scrollHeight; justAdded = false; }
+    }
+
+    function countUp(from, to) {
+      var el = $('sumnum'); if (!el || bad(to) || bad(from)) return;
+      cancelAnimationFrame(raf); var t0 = null;
+      (function tick(t) {
+        if (t0 === null) t0 = t;
+        var p = Math.min(1, (t - t0) / Math.min(700, Number($('speed').value) * .8));
+        el.textContent = Math.round(from + (to - from) * p).toLocaleString();
+        if (p < 1) raf = requestAnimationFrame(tick);
+      })(performance.now());
+    }
+
+    function confetti() {
+      var em = ['🎉', '✨', '💰', '🍎', '⭐', '🎊'];
+      for (var k = 0; k < 36; k++) {
+        var s = document.createElement('span');
+        s.className = 'confetti'; s.textContent = em[k % em.length];
+        s.style.left = Math.random() * 100 + 'vw';
+        s.style.animationDuration = (2 + Math.random() * 2) + 's';
+        s.style.animationDelay = (Math.random() * .6) + 's';
+        document.body.appendChild(s);
+        setTimeout(function (x) { x.remove(); }.bind(null, s), 5000);
+      }
+    }
+
+    function render() {
+      var s = steps[pos], N = data.length;
+      $('stepNo').textContent = '단계 ' + pos + ' / ' + (steps.length - 1);
+      $('desc').innerHTML = s.desc;
+      document.querySelectorAll('#code div').forEach(function (d) { d.classList.toggle('on', s.lines.indexOf(Number(d.dataset.l)) >= 0); });
+
+      /* 왼쪽 장바구니 상태 */
+      var curEl = null;
+      document.querySelectorAll('.citem').forEach(function (el, i) {
+        var cur = s.idx === i && s.phase !== 'end' && s.phase !== 'none';
+        var done = i < s.idx || (s.idx === i && s.phase === 'add') || s.phase === 'end';
+        el.classList.toggle('cur', cur);
+        el.classList.toggle('done', done && !cur);
+        var sub = el.querySelector('.sub');
+        if (done) { var v = data[i].k * (fixed ? data[i].amount : undefined); sub.textContent = fmt(v) + (bad(v) ? '' : '원'); sub.classList.toggle('bad', bad(v)); }
+        else { sub.textContent = cur ? '계산 중' : '대기'; sub.classList.remove('bad'); }
+        if (cur) curEl = el;
+      });
+      if (curEl) { var box = $('cartlist'); box.scrollTop = Math.max(0, curEl.offsetTop - box.clientHeight / 2 + curEl.clientHeight / 2); }
+
+      /* 오른쪽 로직 */
+      $('loopn').textContent = s.count;
+      $('barfill').style.width = (N ? s.count / N * 100 : 0) + '%';
+      $('spin').classList.toggle('go', s.phase === 'take' || s.phase === 'calc' || s.phase === 'add');
+
+      $('ibox').className = 'ibox' + (s.ch.indexOf('i') >= 0 ? ' changed' : '');
+      $('ibox').innerHTML = '<div class="name">i (지금 꺼낸 사과 묶음)</div>' +
+        (s.iobj ? '<div class="big">' + emojis(data[s.idx].amount) + '</div><div class="val">{ ' + s.iobj + ' }</div>' : '<div class="val" style="color:var(--muted);margin-top:14px">아직 없음</div>');
+
+      var bn = fixed ? 'i.amount' : 'i.amout';
+      function chip(cls, lab, show, v, flag) {
+        return '<div class="chip ' + cls + (show && bad(v) ? ' bad' : '') + (show && s.ch.indexOf(flag) >= 0 ? ' set' : '') + '"><div class="lab">' + lab + '</div><div class="num">' + (show ? fmt(v) : '?') + '</div></div>';
+      }
+      $('calc').innerHTML = chip('', '🍎 i.사과', s.hasA, s.a, 'a') + '<span class="op">×</span>' + chip('', '📦 ' + bn, s.hasB, s.b, 'b') + '<span class="op">=</span>' + chip('res', '💵 곱셈 결과', s.hasR, s.r, 'r');
+
+      var nan = s.sum !== null && bad(s.sum);
+      $('sumbox').className = 'sumbox' + (s.ch.indexOf('sum') >= 0 ? ' changed' : '') + (nan ? ' nan' : '') + (s.win ? ' win' : '');
+      $('sumbox').innerHTML = '<div class="lab">💰 sum (총 구매 금액)</div><div class="big" id="sumnum">' + (s.sum === null ? '아직 없음' : fmt(s.sum)) + '</div>';
+      if (s.phase === 'add' && lastPos === pos - 1) countUp(s.from, s.sum);
+      if (s.win && lastPos !== pos) confetti();
+      lastPos = pos;
+
+      $('slider').max = steps.length - 1; $('slider').value = pos;
+      $('prev').disabled = $('reset').disabled = pos === 0;
+      $('next').disabled = $('nextIter').disabled = $('skip').disabled = pos === steps.length - 1;
+      if (pos === steps.length - 1) stop();
+    }
+
+    function go(p) { pos = Math.max(0, Math.min(steps.length - 1, p)); render(); }
+    function stop() { clearInterval(timer); timer = null; $('play').textContent = '▶ 자동 재생'; }
+    function play() {
+      if (timer) { stop(); return; }
+      if (pos === steps.length - 1) go(0);
+      $('play').textContent = '⏸ 일시정지';
+      timer = setInterval(function () { go(pos + 1); }, Number($('speed').value));
+    }
+    function changed() { stop(); build(); renderCode(); renderCart(); lastPos = -1; go(0); }
+
+    $('next').onclick = function () { stop(); go(pos + 1); };
+    $('prev').onclick = function () { stop(); go(pos - 1); };
+    $('reset').onclick = function () { stop(); go(0); };
+    $('nextIter').onclick = function () {
+      stop();
+      for (var p = pos + 1; p < steps.length; p++) if (steps[p].phase === 'take' || steps[p].phase === 'end') { go(p); return; }
+    };
+    $('skip').onclick = function () { stop(); go(steps.length - 1); };
+    $('play').onclick = play;
+    $('slider').oninput = function () { stop(); go(Number(this.value)); };
+    $('speed').onchange = function () { if (timer) { stop(); play(); } };
+    $('fixbox').onchange = function () { fixed = this.checked; changed(); };
+    $('add').onclick = function () {
+      var p = Math.round(Number($('inPrice').value)), a = Math.round(Number($('inAmount').value));
+      if (!(p > 0) || !(a > 0) || data.length >= 100) return;
+      data.push({ k: p, amount: a }); justAdded = true; changed();
+    };
+    $('fill').onclick = function () { data = sampleData(); changed(); };
+    $('clear').onclick = function () { data = []; changed(); };
+    document.addEventListener('keydown', function (e) {
+      if (e.target.tagName === 'INPUT' && e.target.type !== 'checkbox') return;
+      if (e.key === 'ArrowRight') { stop(); go(pos + 1); }
+      if (e.key === 'ArrowLeft') { stop(); go(pos - 1); }
+    });
+
+    data = sampleData();
+    build(); renderCode(); renderCart(); render();
+  </script>
+</body>
+</html>

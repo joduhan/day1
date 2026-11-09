@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>장바구니로 배우는 배열</title>
+  <style>
+    :root {
+      --bg: #fff7ed; --card: #fff; --text: #1f2430; --muted: #6b7280;
+      --accent: #ea580c; --hl: #fde68a; --line: #e5e7eb;
+      --code-bg: #1e1e2e; --code-text: #cdd6f4;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; padding: 16px; }
+    h1 { text-align: center; font-size: 1.4rem; margin-bottom: 12px; }
+    .wrap { max-width: 1000px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .card { background: var(--card); border-radius: 12px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+    .card h2 { font-size: 1rem; margin-bottom: 10px; color: var(--accent); }
+    .full { grid-column: 1 / -1; }
+
+    .code { background: var(--code-bg); color: var(--code-text); border-radius: 8px; padding: 8px 0; font-family: Consolas, monospace; font-size: .9rem; overflow-x: auto; }
+    .code div { padding: 2px 14px; white-space: pre; border-left: 4px solid transparent; }
+    .code div.on { background: rgba(253, 230, 138, .22); border-left-color: #fbbf24; }
+    .code .n { color: #6c7086; display: inline-block; width: 2ch; margin-right: 12px; text-align: right; }
+    .code .c { color: #7f849c; }
+
+    #stepNo { color: var(--muted); font-size: .85rem; margin-bottom: 4px; }
+    #desc { min-height: 4.2em; font-size: 1.05rem; }
+    #desc b { color: var(--accent); }
+
+    .vars { display: flex; gap: 10px; }
+    .var { flex: 1; text-align: center; border: 2px solid var(--line); border-radius: 10px; padding: 8px; transition: all .25s; }
+    .var .name { font-size: .8rem; color: var(--muted); font-family: Consolas, monospace; }
+    .var .val { font-size: 1.4rem; font-weight: bold; font-family: Consolas, monospace; }
+    .var.changed { border-color: #f59e0b; background: #fffbeb; transform: scale(1.05); }
+    .var.undef .val { color: var(--muted); font-size: 1rem; }
+
+    /* 배열 = 칸이 줄지어 있는 장바구니 */
+    .shelf { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .shelf.off .slot { opacity: .2; }
+    .slot { border: 2px solid var(--line); border-radius: 12px; padding: 10px; background: #fafafa; transition: all .25s; }
+    .slot .idx { font-family: Consolas, monospace; font-size: .85rem; color: var(--muted); }
+    .slot .nm { font-size: 1.2rem; font-weight: bold; padding: 0 4px; border-radius: 4px; display: inline-block; }
+    .slot .nm.pick { background: var(--hl); }
+    .slot .meta { font-size: .85rem; color: var(--muted); margin: 2px 0 6px; }
+    .slot .fruits { font-size: 1.1rem; line-height: 1.35; word-break: break-all; min-height: 2.6em; }
+    .slot.cur { background: #fef3c7; border-color: #f59e0b; transform: translateY(-6px); box-shadow: 0 6px 12px rgba(0,0,0,.18); }
+    .slot.done { background: #dcfce7; border-color: #4ade80; }
+    .slot.pop .fruits span { display: inline-block; animation: pop .45s ease backwards; }
+    @keyframes pop { from { transform: translateY(-14px) scale(.2); opacity: 0; } to { transform: none; opacity: 1; } }
+
+    /* 계산서 */
+    .receipt { font-family: Consolas, monospace; }
+    .receipt .row { display: flex; justify-content: space-between; gap: 8px; padding: 4px 0; border-bottom: 1px dashed var(--line); animation: slide .35s ease; }
+    .receipt .empty { color: var(--muted); font-family: inherit; }
+    .receipt .sumrow { font-weight: bold; font-size: 1.15rem; border-bottom: 0; padding-top: 8px; }
+    @keyframes slide { from { transform: translateX(-12px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+    .console { background: #111827; color: #d1fae5; border-radius: 8px; padding: 10px 14px; font-family: Consolas, monospace; min-height: 70px; }
+    .console .empty { color: #6b7280; }
+
+    .ctrl { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; }
+    button, select { font: inherit; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line); background: #fff; cursor: pointer; }
+    button:hover:not(:disabled) { border-color: var(--accent); }
+    button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+    button:disabled { opacity: .4; cursor: default; }
+    input[type=range] { width: 100%; margin-top: 12px; }
+
+    @media (max-width: 720px) { .wrap { grid-template-columns: 1fr; } .shelf { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <h1>🛒 장바구니로 배우는 배열</h1>
+
+  <div class="wrap">
+    <div class="card">
+      <h2>📜 코드 (노란 줄이 지금 실행되는 줄)</h2>
+      <div class="code" id="code"></div>
+    </div>
+
+    <div class="card">
+      <h2>💬 지금 무슨 일이 일어났나요?</h2>
+      <div id="stepNo"></div>
+      <div id="desc"></div>
+      <h2 style="margin-top:14px">📦 변수 상자</h2>
+      <div class="vars" id="vars"></div>
+    </div>
+
+    <div class="card full">
+      <h2>🧺 cart 배열 — 칸 번호(인덱스)는 0, 1, 2 순서로 붙습니다</h2>
+      <div class="shelf off" id="shelf"></div>
+    </div>
+
+    <div class="card">
+      <h2>🧾 계산서 (가격 × 개수)</h2>
+      <div class="receipt" id="receipt"></div>
+    </div>
+
+    <div class="card">
+      <h2>🖥️ 콘솔 출력</h2>
+      <div class="console" id="console"></div>
+    </div>
+
+    <div class="card full">
+      <div class="ctrl">
+        <button id="reset">⏮ 처음으로</button>
+        <button id="prev">◀ 이전</button>
+        <button id="play" class="primary">▶ 자동 재생</button>
+        <button id="next" class="primary">다음 ▶</button>
+        <label>속도
+          <select id="speed">
+            <option value="2200">느리게</option>
+            <option value="1400" selected>보통</option>
+            <option value="700">빠르게</option>
+          </select>
+        </label>
+      </div>
+      <input type="range" id="slider" min="0" value="0">
+    </div>
+  </div>
+
+  <script>
+    var won = function (n) { return n.toLocaleString('ko-KR') + '원'; };
+
+    var CODE = [
+      'const cart = [',
+      '  { name: \'사과\', price: 100,   qty: 10 },',
+      '  { name: \'배\',   price: 1000,  qty: 5 },',
+      '  { name: \'귤\',   price: 10000, qty: 10 },',
+      ']',
+      'console.log(cart.length)',
+      'console.log(cart[0].name)',
+      'let total = 0',
+      'for (const item of cart) {',
+      '  total += item.price * item.qty',
+      '}',
+      'console.log(total)'
+    ];
+    var cart = [
+      { name: '사과', price: 100, qty: 10, emoji: '🍎' },
+      { name: '배', price: 1000, qty: 5, emoji: '🍐' },
+      { name: '귤', price: 10000, qty: 10, emoji: '🍊' }
+    ];
+
+    // ---- 모든 단계를 미리 계산 ----
+    var steps = [];
+    var st = { shelf: false, idx: -1, item: null, total: null, out: [], receipt: [] };
+    function snap(lines, desc, changed, extra) {
+      var s = JSON.parse(JSON.stringify(st));
+      s.lines = lines; s.desc = desc; s.changed = changed || [];
+      if (extra) for (var k in extra) s[k] = extra[k];
+      steps.push(s);
+    }
+    snap([], '아직 아무 코드도 실행하지 않았습니다. <b>다음 ▶</b> 버튼을 눌러 한 줄씩 실행해 보세요.');
+
+    st.shelf = true;
+    snap([0, 1, 2, 3, 4], '<b>cart</b>라는 배열을 만듭니다. 배열은 <b>여러 개를 순서대로 담는 바구니</b>입니다. 지금은 상품 3개(사과, 배, 귤)가 들어 있고, 칸 번호는 <b>0부터</b> 시작합니다.', [], { mode: 'all' });
+
+    st.out.push('3');
+    snap([5], '<b>cart.length</b>는 배열에 들어 있는 칸의 개수입니다. 칸이 3개이므로 <b>3</b>이 출력됩니다. (마지막 칸 번호는 length - 1 = 2)', [], { mode: 'all' });
+
+    st.out.push('사과');
+    snap([6], '<b>cart[0]</b>은 0번 칸의 상품이고, 거기서 <b>.name</b>을 꺼내면 <b>사과</b>입니다. 대괄호 [ ] 안의 숫자로 원하는 칸을 지정합니다.', [], { mode: 'peek', idx: 0 });
+
+    st.total = 0;
+    snap([7], '<b>total</b> 상자를 만들고 <b>0</b>을 넣습니다. 여기에 상품별 금액을 차례로 더해 갈 거예요.', ['total']);
+
+    for (var n = 0; n < cart.length; n++) {
+      var it = cart[n];
+      st.item = it.name; st.idx = n;
+      snap([8], '<b>for...of</b> ' + (n + 1) + '번째 반복: 배열에서 <b>' + n + '번 칸</b>의 상품 <b>' + it.name + '</b>을 꺼내 <b>item</b>에 넣습니다.', ['item'], { mode: 'cur', phase: 'take' });
+
+      var sub = it.price * it.qty, before = st.total;
+      st.total += sub;
+      st.receipt.push({ name: it.name, price: it.price, qty: it.qty, sub: sub });
+      snap([9], '<b>total += item.price * item.qty</b> → ' + it.price.toLocaleString() + ' × ' + it.qty + ' = <b>' + sub.toLocaleString() + '원</b>. total은 ' + before.toLocaleString() + ' + ' + sub.toLocaleString() + ' = <b>' + st.total.toLocaleString() + '</b>이 됩니다.', ['total'], { mode: 'cur', phase: 'add', from: before });
+    }
+
+    st.item = null; st.idx = 3;
+    snap([10], '배열의 모든 칸을 하나씩 꺼내 봤으므로 반복문이 끝납니다. 배열 + 반복문 = <b>"모든 칸을 빠짐없이 처리"</b> 하는 가장 기본적인 방법입니다.', [], { mode: 'all', done: true });
+
+    st.out.push(String(st.total));
+    snap([11], '최종 total을 출력합니다. 1,000 + 5,000 + 100,000 = <b>' + st.total.toLocaleString() + '원</b> (콘솔에는 숫자 ' + st.total + '로 찍힙니다)', ['total'], { mode: 'all', done: true });
+
+    // ---- 화면 ----
+    var $ = function (id) { return document.getElementById(id); };
+    $('code').innerHTML = CODE.map(function (t, i) {
+      return '<div data-l="' + i + '"><span class="n">' + (i + 1) + '</span>' + t + '</div>';
+    }).join('');
+    $('shelf').innerHTML = cart.map(function (c, i) {
+      var f = ''; for (var k = 0; k < c.qty; k++) f += '<span style="animation-delay:' + (k * 0.05) + 's">' + c.emoji + '</span>';
+      return '<div class="slot" data-i="' + i + '"><div class="idx">cart[' + i + ']</div>' +
+        '<div class="nm">' + c.name + '</div>' +
+        '<div class="meta">' + c.price.toLocaleString() + '원 × ' + c.qty + '개</div>' +
+        '<div class="fruits">' + f + '</div></div>';
+    }).join('');
+    $('slider').max = steps.length - 1;
+
+    var pos = 0, timer = null, shownTotal = 0, raf = null;
+
+    function varBox(name, val, changed) {
+      var undef = val === null;
+      return '<div class="var' + (changed ? ' changed' : '') + (undef ? ' undef' : '') + '">' +
+        '<div class="name">' + name + '</div><div class="val" ' + (name === 'total' ? 'id="totalVal"' : '') + '>' + (undef ? '아직 없음' : val) + '</div></div>';
+    }
+
+    function countUp(from, to) {
+      var el = $('totalVal'); if (!el) return;
+      cancelAnimationFrame(raf);
+      var t0 = null;
+      (function tick(t) {
+        if (t0 === null) t0 = t;
+        var p = Math.min(1, (t - t0) / 700);
+        el.textContent = Math.round(from + (to - from) * p).toLocaleString();
+        if (p < 1) raf = requestAnimationFrame(tick);
+      })(performance.now());
+    }
+
+    var lastPos = -1;
+    function render() {
+      var s = steps[pos];
+      $('stepNo').textContent = '단계 ' + pos + ' / ' + (steps.length - 1);
+      $('desc').innerHTML = s.desc;
+      document.querySelectorAll('#code div').forEach(function (d) {
+        d.classList.toggle('on', s.lines.indexOf(Number(d.dataset.l)) >= 0);
+      });
+      $('vars').innerHTML = varBox('total', s.total === null ? null : s.total.toLocaleString(), s.changed.indexOf('total') >= 0) +
+        varBox('item', s.item, s.changed.indexOf('item') >= 0);
+      if (s.phase === 'add' && lastPos === pos - 1) countUp(s.from, s.total);
+      lastPos = pos;
+
+      var shelf = $('shelf');
+      var appearing = s.shelf && pos > 0 && !steps[pos - 1].shelf;
+      shelf.classList.toggle('off', !s.shelf);
+      shelf.querySelectorAll('.slot').forEach(function (el, i) {
+        var cur = (s.mode === 'cur' || s.mode === 'peek') && i === s.idx;
+        var done = s.mode === 'all' && s.done ||
+                   s.mode === 'cur' && (i < s.idx || (i === s.idx && s.phase === 'add'));
+        el.classList.toggle('cur', cur);
+        el.classList.toggle('done', done && !cur || (done && s.phase === 'add' && i === s.idx));
+        el.classList.toggle('pop', appearing);
+        el.querySelector('.nm').classList.toggle('pick', s.mode === 'peek' && i === s.idx);
+      });
+
+      $('receipt').innerHTML = s.receipt.length
+        ? s.receipt.map(function (r) {
+            return '<div class="row"><span>' + r.name + ' ' + r.price.toLocaleString() + ' × ' + r.qty + '</span><span>' + won(r.sub) + '</span></div>';
+          }).join('') + '<div class="row sumrow"><span>합계</span><span>' + won(s.total) + '</span></div>'
+        : '<span class="empty">(아직 계산한 상품이 없습니다)</span>';
+
+      $('console').innerHTML = s.out.length
+        ? s.out.map(function (o) { return '&gt; ' + o; }).join('<br>')
+        : '<span class="empty">(아직 출력된 내용이 없습니다)</span>';
+
+      $('slider').value = pos;
+      $('prev').disabled = $('reset').disabled = pos === 0;
+      $('next').disabled = pos === steps.length - 1;
+      if (pos === steps.length - 1) stop();
+    }
+
+    function go(p) { pos = Math.max(0, Math.min(steps.length - 1, p)); render(); }
+    function stop() { clearInterval(timer); timer = null; $('play').textContent = '▶ 자동 재생'; }
+    function play() {
+      if (timer) { stop(); return; }
+      if (pos === steps.length - 1) go(0);
+      $('play').textContent = '⏸ 일시정지';
+      timer = setInterval(function () { go(pos + 1); }, Number($('speed').value));
+    }
+
+    $('next').onclick = function () { stop(); go(pos + 1); };
+    $('prev').onclick = function () { stop(); go(pos - 1); };
+    $('reset').onclick = function () { stop(); go(0); };
+    $('play').onclick = play;
+    $('slider').oninput = function () { stop(); go(Number(this.value)); };
+    $('speed').onchange = function () { if (timer) { stop(); play(); } };
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowRight') { stop(); go(pos + 1); }
+      if (e.key === 'ArrowLeft') { stop(); go(pos - 1); }
+    });
+
+    render();
+  </script>
+</body>
+</html>
